@@ -1,0 +1,33 @@
+data:
+  root: D:\Projects\Technion\SpeechEmotionRecognition\data
+  feature_type: mfcc
+  feature_params:
+    n_mfcc: 40
+    add_delta: true
+    add_delta2: true
+  sr: 16000
+  cache_dir: cache_features/mfcc
+  fixed_frames: 256
+
+model:
+  name: resnet
+  params:
+    in_channels: 1
+    base_channels: 32
+    num_classes: 8
+    depth: 4
+
+train:
+  batch_size: 32
+  epochs: 30
+  optimizer:
+    lr: 0.001
+    weight_decay: 0.0005
+  amp: true
+  accumulate_steps: 1
+  early_patience: 10
+
+logging:
+  log_dir: logs/resnet_mfcc_run1
+  checkpoint_dir: checkpoints/resnet_mfcc_run1
+  tensorboard: true

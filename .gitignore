@@ -1,0 +1,39 @@
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Build and distribution
+build/
+dist/
+*.egg-info/
+
+# Logs and debug
+*.log
+
+# IDE/editor settings
+.vscode/
+.idea/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints/
+
+# Environment variables / secrets
+.env
+
+# Others
+cache_features/
+checkpoints/
+logs/
+data/
