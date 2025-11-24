@@ -33,7 +33,8 @@ Thumbs.db
 .env
 
 # Others
-cache_features/
-checkpoints/
-logs/
 data/
+experiments/cache_features/
+experiments/checkpoints/
+experiments/logs/
+requirements.txt

@@ -7,7 +7,7 @@ data:
     add_delta2: true
   sr: 16000
   cache_dir: cache_features/mfcc
-  fixed_frames: 256
+  #fixed_frames: 256
 
 model:
   name: resnet
@@ -18,6 +18,9 @@ model:
     depth: 4
 
 train:
+  num_workers: 0
+  #score: 
+  #loss: cross_entropy
   batch_size: 32
   epochs: 30
   optimizer:

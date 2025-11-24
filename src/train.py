@@ -14,9 +14,9 @@ import sys
 ROOT_DIR = os.path.dirname(os.path.dirname(__file__))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
-from datasets import EmotionDataset, DatasetConfig
+from data_loader import EmotionDataset, DatasetConfig
 from models import build_model, available_models
-from training.loops import train_loop, TrainConfig
+from loops import train_loop, TrainConfig
 
 try:
     from torch.utils.tensorboard import SummaryWriter
@@ -60,24 +60,22 @@ def main():
             print(f"[DEBUG] Using subset of {args.max_samples} samples for quick run.")
     else:
         ds_work = ds_full
-    # Label map only accessible on original dataset
-    label_map = getattr(ds_full, 'label2idx', {})
-    print(f"Discovered {len(ds_work)} samples across {len(label_map)} labels: {label_map}")
-    if args.debug and len(ds_full):
-        first_path = ds_full.paths[0] if hasattr(ds_full, 'paths') and ds_full.paths else 'N/A'
-        print('[DEBUG] First path example:', first_path)
+    print(f"Discovered {len(ds_work)} files")
+    
     # Simple split
     indices = torch.randperm(len(ds_work))
     n = len(indices)
     train_end = int(0.8 * n)
     val_end = int(0.9 * n)
-    train_idx, val_idx = indices[:train_end], indices[train_end:val_end]
+    train_idx, val_idx, test_idx = indices[:train_end], indices[train_end:val_end], indices[val_end:]
     ds_train = torch.utils.data.Subset(ds_work, train_idx)
     ds_val = torch.utils.data.Subset(ds_work, val_idx)
+    ds_test = torch.utils.data.Subset(ds_work, test_idx)
 
     batch_size = cfg_dict['train']['batch_size']
     dl_train = DataLoader(ds_train, batch_size=batch_size, shuffle=True, num_workers=cfg_dict['train'].get('num_workers', 0))
     dl_val = DataLoader(ds_val, batch_size=batch_size, shuffle=False, num_workers=cfg_dict['train'].get('num_workers', 0))
+    dl_test = DataLoader(ds_test, batch_size=batch_size, shuffle=False, num_workers=cfg_dict['train'].get('num_workers', 0))
 
     # Model
     model_name = cfg_dict['model']['name']

@@ -21,7 +21,7 @@ try:
 except ImportError:
     Dataset = object  # Fallback for type hints
 
-from audio_features import extract_with_cache, load_audio
+from audio_features import extract_from_path, load_audio
 
 @dataclass
 class DatasetConfig:
@@ -34,6 +34,7 @@ class DatasetConfig:
     label_map: Optional[Dict[str, int]] = None  # Optional external label mapping
     recursive: bool = True
     fixed_frames: Optional[int] = None  # Pad / truncate time dimension to this length if provided
+    dataset_name: str = ""  # Name of the dataset (e.g., RAVDESS, TESS, CREMA-D, SAVEE)
 
 class EmotionDataset(Dataset):
     """Dataset that loads audio files, extracts features (with caching), and returns tensor features + label.
@@ -52,30 +53,81 @@ class EmotionDataset(Dataset):
     def __init__(self, config: DatasetConfig, transform: Optional[Callable] = None):
         self.config = config
         self.transform = transform
-        self.paths, self.labels, self.label2idx = self._discover()
+        self.paths, self.labels = self._discover()
 
-    def debug_getmeta(self):
-        return {"paths": self.paths, "labels": self.labels, "label2idxs": self.label2idx}
+    def _extract_label(self, audio_file_path: str, dataset_name: str) -> int:
+        """Extract label based on dataset-specific rules."""
+        emotion = -1
+        if dataset_name == 'ravdess-emotional-speech-audio':
+            emotion = int(audio_file_path[7:8]) - 1
+        elif dataset_name == 'toronto-emotional-speech-set-tess':
+            if '_neutral' in audio_file_path:
+                emotion = 0
+            elif '_happy' in audio_file_path:
+                emotion = 2
+            elif '_sad' in audio_file_path:
+                emotion = 3
+            elif '_angry' in audio_file_path:
+                emotion = 4
+            elif '_fear' in audio_file_path:
+                emotion = 5
+            elif '_disgust' in audio_file_path:
+                emotion = 6
+            elif '_ps' in audio_file_path:
+                emotion = 7
+        elif dataset_name == 'cremad':
+            if '_NEU_' in audio_file_path:
+                emotion = 0
+            elif '_HAP_' in audio_file_path:
+                emotion = 2
+            elif '_SAD_' in audio_file_path:
+                emotion = 3
+            elif '_ANG_' in audio_file_path:
+                emotion = 4
+            elif '_FEA_' in audio_file_path:
+                emotion = 5
+            elif '_DIS_' in audio_file_path:
+                emotion = 6
+        elif dataset_name == 'savee-database':
+            if 'n' in audio_file_path:
+                emotion = 0
+            elif 'h' in audio_file_path:
+                emotion = 2
+            elif 'sa' in audio_file_path:
+                emotion = 3
+            elif 'a' in audio_file_path:
+                emotion = 4
+            elif 'f' in audio_file_path:
+                emotion = 5
+            elif 'd' in audio_file_path:
+                emotion = 6
+            elif 'su' in audio_file_path:
+                emotion = 7
+        return emotion
 
-    def _discover(self) -> Tuple[List[str], List[int], Dict[str,int]]:
-        label2idx: Dict[str,int] = {} if self.config.label_map is None else dict(self.config.label_map)
+    def _discover(self) -> Tuple[List[str], List[int], Dict[str, int]]:
         paths: List[str] = []
         labels: List[int] = []
         root = self.config.data_root
-        for dirpath, dirnames, filenames in os.walk(root):
-            if not self.config.recursive and (dirpath != root):
+
+        for dataset_dir in os.listdir(root):
+            dataset_path = os.path.join(root, dataset_dir)
+            if not os.path.isdir(dataset_path):
                 continue
-            rel = os.path.relpath(dirpath, root)
-            if rel == '.':  # root itself
-                continue
-            label = rel.split(os.sep)[0]
-            if label not in label2idx:
-                label2idx[label] = len(label2idx)
-            for f in filenames:
-                if f.endswith(self.config.file_ext):
-                    paths.append(os.path.join(dirpath, f))
-                    labels.append(label2idx[label])
-        return paths, labels, label2idx
+
+            dataset_name = dataset_dir  # Assign dataset name based on directory
+
+            for dirpath, dirnames, filenames in os.walk(dataset_path):
+                if not self.config.recursive and (dirpath != dataset_path):
+                    continue
+                for f in filenames:
+                    if f.endswith(self.config.file_ext):
+                        full_path = os.path.join(dirpath, f)
+                        label = self._extract_label(f, dataset_name)
+                        if label != -1:  # Skip files with invalid labels
+                            paths.append(full_path)
+                            labels.append(label)
+        return paths, labels
 
     def __len__(self):
         return len(self.paths)
@@ -83,12 +135,11 @@ class EmotionDataset(Dataset):
     def __getitem__(self, idx: int):
         path = self.paths[idx]
         label = self.labels[idx]
-        feats = extract_with_cache(
+        feats = extract_from_path(
             path,
-            self.config.feature_name,
-            self.config.cache_dir,
-            target_sr=self.config.target_sr,
-            params=self.config.feature_params or {},
+            self.config.feature_name, 
+            target_sr=self.config.target_sr, 
+            params=self.config.feature_params or {}
         )
         # feats shape: (F, Tvar) or similar
         if self.config.fixed_frames is not None:

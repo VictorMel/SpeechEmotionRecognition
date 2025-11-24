@@ -8,3 +8,5 @@ librosa
 soundfile
 numpy
 PyYAML
+ipykernel
+matplotlib
