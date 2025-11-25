@@ -26,15 +26,13 @@ from audio_features import extract_from_path, load_audio
 @dataclass
 class DatasetConfig:
     data_root: str = ""  # Must be provided explicitly
-    feature_name: str = "mfcc"
-    target_sr: int = 16000
-    cache_dir: str = "cache_features/mfcc"
-    feature_params: Dict = None
-    file_ext: str = ".wav"
-    label_map: Optional[Dict[str, int]] = None  # Optional external label mapping
-    recursive: bool = True
+    file_ext: Optional[str] = ".wav"
+    target_sr: Optional[int] = 16000
     fixed_frames: Optional[int] = None  # Pad / truncate time dimension to this length if provided
-    dataset_name: str = ""  # Name of the dataset (e.g., RAVDESS, TESS, CREMA-D, SAVEE)
+    feature_name: Optional[str] = None
+    cache_dir: Optional[str] = None
+    feature_params: Optional[Dict] = None
+    recursive: Optional[bool] = True
 
 class EmotionDataset(Dataset):
     """Dataset that loads audio files, extracts features (with caching), and returns tensor features + label.
