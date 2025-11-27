@@ -51,14 +51,25 @@ class EmotionDataset(Dataset):
     def __init__(self, config: DatasetConfig, transform: Optional[Callable] = None):
         self.config = config
         self.transform = transform
-        self.paths, self.labels = self._discover()
+        self.paths, self.datasets, self.emotions, self.intensities= self._discover()
+        self.is_data_cleaned = False
+        # self.clean_data()  # Clean and reindex labels on initialization
 
-    def _extract_label(self, audio_file_path: str, dataset_name: str) -> int:
+    def _extract_labels(self, audio_file_path: str, dataset_name: str):
         """Extract label based on dataset-specific rules."""
-        emotion = -1
+        dataset = None
+        emotion = None
+        intensity = None
         if dataset_name == 'ravdess-emotional-speech-audio':
+            dataset = 'ravdess'
             emotion = int(audio_file_path[7:8]) - 1
+            intensity = int(audio_file_path[10:11])
+            if intensity == 1:
+                intensity = 'normal'
+            elif intensity == 2:
+                intensity = 'strong'
         elif dataset_name == 'toronto-emotional-speech-set-tess':
+            dataset = 'tess'
             if '_neutral' in audio_file_path:
                 emotion = 0
             elif '_happy' in audio_file_path:
@@ -73,7 +84,9 @@ class EmotionDataset(Dataset):
                 emotion = 6
             elif '_ps' in audio_file_path:
                 emotion = 7
+            intensity = 'single'
         elif dataset_name == 'cremad':
+            dataset = 'cremad'
             if '_NEU_' in audio_file_path:
                 emotion = 0
             elif '_HAP_' in audio_file_path:
@@ -86,7 +99,18 @@ class EmotionDataset(Dataset):
                 emotion = 5
             elif '_DIS_' in audio_file_path:
                 emotion = 6
+            name, ext = os.path.splitext(audio_file_path)
+            suffix = name[-2:]
+            if suffix == 'XX':
+                intensity = 'single'
+            elif suffix == 'LO':
+                intensity = 'low'
+            elif suffix == 'MD':
+                intensity = 'middle'
+            elif suffix == 'HI':
+                intensity = 'high'
         elif dataset_name == 'savee-database':
+            dataset = 'savee'
             if 'n' in audio_file_path:
                 emotion = 0
             elif 'h' in audio_file_path:
@@ -101,11 +125,14 @@ class EmotionDataset(Dataset):
                 emotion = 6
             elif 'su' in audio_file_path:
                 emotion = 7
-        return emotion
+            intensity = 'single'
+        return dataset, emotion, intensity
 
     def _discover(self) -> Tuple[List[str], List[int], Dict[str, int]]:
         paths: List[str] = []
-        labels: List[int] = []
+        emotions: List[int] = []
+        intensities: List[int] = []
+        datasets: List[str] = []
         root = self.config.data_root
 
         for dataset_dir in os.listdir(root):
@@ -121,11 +148,30 @@ class EmotionDataset(Dataset):
                 for f in filenames:
                     if f.endswith(self.config.file_ext):
                         full_path = os.path.join(dirpath, f)
-                        label = self._extract_label(f, dataset_name)
-                        if label != -1:  # Skip files with invalid labels
+                        dataset, emotion, intensity = self._extract_labels(f, dataset_name)
+                        if emotion is not None and intensity is not None:  # Skip files with invalid labels
                             paths.append(full_path)
-                            labels.append(label)
-        return paths, labels
+                            datasets.append(dataset)
+                            emotions.append(emotion)
+                            intensities.append(intensity)
+        return paths, datasets, emotions, intensities
+    
+    def clean_data(self):
+        """Exclude 'calm' (label 1) and remap emotion labels 2:7 to 1:6."""
+        if(self.is_data_cleaned == False):
+            # Filter out 'calm' (label 1)
+            filtered_data = [
+                (path, dataset, emotion, intensity)
+                for path, dataset, emotion, intensity in zip(self.paths, self.datasets, self.emotions, self.intensities)
+                if emotion != 1
+            ]
+            if filtered_data:
+                self.paths, self.datasets, self.emotions, self.intensities = zip(*filtered_data)
+            else:
+                self.paths, self.datasets, self.emotions, self.intensities = [], [], [], []
+            # Remap emotion labels 2:7 to 1:6
+            self.emotions = [emotion - 1 if emotion > 1 else emotion for emotion in self.emotions]
+            self.is_data_cleaned = True
 
     def __len__(self):
         return len(self.paths)
