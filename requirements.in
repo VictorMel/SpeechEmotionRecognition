@@ -10,4 +10,6 @@ numpy
 PyYAML
 ipykernel
 matplotlib
+seaborn
 pandas
+scikit-learn
