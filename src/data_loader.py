@@ -11,6 +11,7 @@ Future Extensions:
 """
 from __future__ import annotations
 import os
+import sys
 from dataclasses import dataclass
 from typing import List, Dict, Optional, Tuple, Callable
 
@@ -21,6 +22,8 @@ try:
 except ImportError:
     Dataset = object  # Fallback for type hints
 
+# Add the src directory to the Python path
+sys.path.append(os.path.abspath("../src/utils"))
 from audio_features import extract_from_path, load_audio
 
 @dataclass
@@ -156,9 +159,9 @@ class EmotionDataset(Dataset):
                             intensities.append(intensity)
         return paths, datasets, emotions, intensities
     
-    def clean_data(self):
-        """Exclude 'calm' (label 1) and remap emotion labels 2:7 to 1:6."""
-        if(self.is_data_cleaned == False):
+    def preprocess(self):
+        """Preprocess the dataset: exclude 'calm' (label 1) and remap labels."""
+        if not self.is_data_cleaned:
             # Filter out 'calm' (label 1)
             filtered_data = [
                 (path, dataset, emotion, intensity)
@@ -169,8 +172,10 @@ class EmotionDataset(Dataset):
                 self.paths, self.datasets, self.emotions, self.intensities = zip(*filtered_data)
             else:
                 self.paths, self.datasets, self.emotions, self.intensities = [], [], [], []
+
             # Remap emotion labels 2:7 to 1:6
             self.emotions = [emotion - 1 if emotion > 1 else emotion for emotion in self.emotions]
+
             self.is_data_cleaned = True
 
     def __len__(self):
